@@ -1,5 +1,7 @@
 files=GEE
 
+files=GEE hello
+
 all: ${files}
 
 clean: 
@@ -10,4 +12,9 @@ util.o: util.c util.h
 
 GEE: GEE.c util.o
 	cc -o GEE GEE.c util.o
+
+hello: hello.c
+	cc -o hello hello.c
+
+
 
