@@ -26,7 +26,9 @@ parser.add_argument("--niter", type=int, help="number of iterations", default=20
 parser.add_argument("--output_faiss_index", help="file name for output index", default=None)
 parser.add_argument("--output_centroids", help="file name for output centroids", default=None)
 parser.add_argument("--output_labels", help="file name for output labels", default=None)
-parser.add_argument("--verbose", help="turn on kmeeans verbose flag", action='store_true')
+parser.add_argument("--verbose", help="turn on kmeans verbose flag", action='store_true')
+parser.add_argument("--kmeans_iteration_stats", help="file to save kmeans.iteration_stats", default=None)
+parser.add_argument("--kmeans_obj", help="file to save kmeans.obj", default=None)
 args = parser.parse_args()
 
 def record_size_from_dir(dir):
@@ -69,6 +71,12 @@ print('%0.f sec: finished kmeans' % (time.time() -t0), file=sys.stderr)
 
 if not args.output_centroids is None:
     np.save(args.output_centroids, kmeans.centroids)
+
+if not args.kmeans_iteration_stats is None:
+    np.save(args.kmeans_iteration_stats, kmeans.iteration_stats)
+
+if not args.kmeans_obj is None:
+    np.save(args.kmeans_obj, kmeans.obj)
 
 if not args.output_faiss_index is None:
     faiss.write_index(kmeans.index, args.output_faiss_index)

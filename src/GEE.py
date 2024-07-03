@@ -9,7 +9,7 @@ import time
 
 
 
-print('GraphEncoder_clustering: ' + str(sys.argv), file=sys.stderr)
+print('GEE.py: ' + str(sys.argv), file=sys.stderr)
 sys.stderr.flush()
 
 GEEsrc=os.environ.get('GEEsrc')
@@ -155,12 +155,13 @@ def create_Z(G, Y, Zprev_path):
   Zpath = args.save_prefix + '.Z_kwc.%d.f' % kwc_save_offset
   YY.tofile(Ypath)
 
-  cmd = GEEsrc + '/C/GEE ' + ' '.join([X0path, X1path, X2path, Ypath, Zprev_path, Zpath + '.err'])
+  cmd = GEEsrc + '/C/GEE ' + ' '.join([X0path, X1path, X2path, Ypath, Zprev_path, Zpath + '.err', Zpath])
   print('cmd: ' + cmd, file=sys.stderr)
+  sys.stderr.flush()
   # os.system(cmd)
-  with open(Zpath, 'wb') as outf:
-      result = subprocess.run(cmd, stdout=outf, shell=True)
-  print('result: [return code: %d]' % (result.returncode), file=sys.stderr)
+  result = subprocess.run(cmd, capture_output=True, shell=True)
+  print('return code from cmd: %d, stdout: %s, stderr: %s]' % (result.returncode, result.stdout.decode('utf-8'), result.stderr.decode('utf-8')), file=sys.stderr)
+
   assert os.path.exists(Zpath), 'cmd failed'    
   # Z = np.memmap(Zpath, dtype=np.float32, shape=(n, k), mode='r')
   Z = map_float32(Zpath).reshape(n, -1)
@@ -194,6 +195,10 @@ if not config is None:
   Zpath = args.input_directory + '/embedding.f'
 
 for iteration in range(4):
+
+  print('%0.3f sec: working on iteration: %d' % (time.time() - t0, iteration), file=sys.stderr)
+  sys.stderr.flush()
+
   Y1 = create_Y(Z1, Z1.shape[1])
 
   print('%0.3f sec: Y1 computed, iteration: %d' % (time.time() - t0, iteration), file=sys.stderr)
@@ -207,6 +212,7 @@ for iteration in range(4):
   sys.stderr.flush()
 
   Z1 = Z2
-
+  Zpath = newZpath
+  kwc_save_offset += 1
 
 print('done, %0.3f sec' % (time.time() - t0), file=sys.stderr)  # added by kwc

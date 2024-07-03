@@ -8,13 +8,13 @@
 #include <stdint.h>
 #include <strings.h>
 
-FILE *my_fopen(char *fn, char *mode);
-void fatal(char *msg);
+FILE *my_fopen(char *fn, char *mode, FILE *err);
+void fatal(char *msg, FILE *err);
 long fd_length(FILE *fd);
 void *mmapfd(FILE *fd, long *n);
-void *mmapfile(char *filename, long *n);
-void *readcharsfd(FILE *fd, long *n);
-void *readchars(char *filename, long *n);
+void *mmapfile(char *filename, long *n, FILE *err);
+void *readcharsfd(FILE *fd, long *n, FILE *err);
+void *readchars(char *filename, long *n, FILE *err);
 char *filename(char *result, char *prefix, char *suffix);
 char *filename2(char *result, char *prefix, char *suffix, int piece);
 int file_exists(char *fn);

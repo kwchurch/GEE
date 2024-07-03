@@ -9,18 +9,19 @@
 #include <strings.h>
 #include "util.h"
 
-void fatal(char *msg)
+void fatal(char *msg, FILE *err)
 {
-  fprintf(stderr, "fatal: %s\n", msg);
+  fprintf(err, "fatal: %s\n", msg);
+  fflush(err);
   exit(2);
 }
 
-FILE *my_fopen(char *fn, char *mode)
+FILE *my_fopen(char *fn, char *mode, FILE *err)
 {
   FILE *res = fopen(fn, mode);
   if(!res) {
-    fprintf(stderr, "my_fopen: %s, mode: %s\n", fn, mode);
-    fatal("open failed");
+    fprintf(err, "my_fopen: %s, mode: %s\n", fn, mode);
+    fatal("open failed", err);
   }
   return res;
 }
@@ -46,32 +47,32 @@ void *mmapfd(FILE *fd, long *n)
   return result;
 }
 
-void *mmapfile(char *filename, long *n)
+void *mmapfile(char *filename, long *n, FILE *err)
 {
   FILE *fd = fopen(filename, "r");
   if(!fd) {
-    fprintf(stderr, "filename = %s\n", filename);
-    fatal("mmapfile: open failed");
+    fprintf(err, "filename = %s\n", filename);
+    fatal("mmapfile: open failed", err);
   }
   void *result = mmapfd(fd, n);
   fclose(fd);
   return result;
 }
 
-void *readcharsfd(FILE *fd, long *n)
+void *readcharsfd(FILE *fd, long *n, FILE *err)
 {
   *n = fd_length(fd);
   void *result = malloc(*n);
-  if(!result) fatal("readcharsfd: malloc failed");
-  if(fread(result, 1, *n, fd) != *n) fatal("readcharsfd: fread failed");
+  if(!result) fatal("readcharsfd: malloc failed", err);
+  if(fread(result, 1, *n, fd) != *n) fatal("readcharsfd: fread failed", err);
   return result;
 }
 
-void *readchars(char *filename, long *n)
+void *readchars(char *filename, long *n, FILE *err)
 {
   FILE *fd = fopen(filename, "r");
-  if(!fd) fatal("readchars: open failed");
-  void *result = readcharsfd(fd, n);
+  if(!fd) fatal("readchars: open failed", err);
+  void *result = readcharsfd(fd, n, err);
   fclose(fd);
   return result;
 }
