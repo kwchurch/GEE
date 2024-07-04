@@ -3,15 +3,18 @@
 import numpy as np
 import time,os,sys,argparse
 
-print('laplacian.py: ' + str(sys.argv), file=sys.stderr)
+print('centroid_of_random_vectors.py: ' + str(sys.argv), file=sys.stderr)
 sys.stderr.flush()
 
 t0 = time.time()
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-o", "--output", help="output pathname", required=True)
-parser.add_argument("-G", "--input_graph", help="input graph (pathname minus .X.i)", default=None)
+parser.add_argument("-n", type=int, help="number of random vectors to pick", required=True)
+parser.add_argument("-d", type=int, help="dimensions", required=True)
 args = parser.parse_args()
+
+
+
 
 def map_int32(fn):
     fn_len = os.path.getsize(fn)

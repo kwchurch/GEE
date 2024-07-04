@@ -29,6 +29,7 @@ parser.add_argument("--output_labels", help="file name for output labels", defau
 parser.add_argument("--verbose", help="turn on kmeans verbose flag", action='store_true')
 parser.add_argument("--kmeans_iteration_stats", help="file to save kmeans.iteration_stats", default=None)
 parser.add_argument("--kmeans_obj", help="file to save kmeans.obj", default=None)
+parser.add_argument("--seed", type=int, help="set random seed to make repeatable", default=None)
 args = parser.parse_args()
 
 def record_size_from_dir(dir):
@@ -64,7 +65,11 @@ if args.end >= 0:
 
 queries = embedding[args.start:end,:]
 
-kmeans = faiss.Kmeans(d=d, k=args.K, niter=args.niter, verbose=args.verbose)
+kwargs={}
+if not args.seed is None:
+    kwargs['seed'] = args.seed
+
+kmeans = faiss.Kmeans(d=d, k=args.K, niter=args.niter, verbose=args.verbose, **kwargs)
 kmeans.train(queries)
 
 print('%0.f sec: finished kmeans' % (time.time() -t0), file=sys.stderr)

@@ -73,7 +73,7 @@ def map64_from_dir(dir):
     return np.memmap(fn, dtype=int, shape=(int(fn_len/8)), mode='r')
 
 def embedding_from_dir(dir, K):
-    fn = dir + '/embedding.f'
+    fn = dir + '/embedding.norm.f'
     fn_len = os.path.getsize(fn)
     return np.memmap(fn, dtype=np.float32, shape=(int(fn_len/(4*K)), K), mode='r')
 
@@ -192,7 +192,7 @@ G = read_graph(args.input_graph, config['map32'])
 
 if not config is None:
   Z1 = config['embedding']
-  Zpath = args.input_directory + '/embedding.f'
+  Zpath = args.input_directory + '/embedding.norm.f'
 
 for iteration in range(4):
 

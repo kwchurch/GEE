@@ -43,6 +43,7 @@ void normalize_row(float *row, long k)
   long i;
   double d = 0;
   for(i=0;i<k;i++) d += row[i]*row[i];
+  d = sqrt(d);
   for(i=0;i<k;i++) row[i] /= d;
 }
 
@@ -142,7 +143,7 @@ int main(int ac, char **av)
     memset(Z, 0, sizeof(float) * nZ);
   }
   else {    
-    float *Z = (float *)readchars(av[5], &nZ, err);
+    Z = (float *)readchars(av[5], &nZ, err);
     nZ /= sizeof(float);
     fprintf(err, "Z: %ld floats in %s (Z)\n", nZ, av[5]);
     fflush(err);
@@ -167,6 +168,8 @@ int main(int ac, char **av)
 
   fprintf(err, "tick = %ld, ntick = %ld\n", tick, ntick);
   fflush(err);
+
+  // X0 = X0end;			/* for debugging */
 
   for(;X0 < X0end; X0++,X1++,X2++) {
 
@@ -296,7 +299,7 @@ int main(int ac, char **av)
     }
   }
 
-  // normalize(Z, n, k);
+  normalize(Z, n, k);
 
   fprintf(err, "about to output\n");
   fflush(err);
