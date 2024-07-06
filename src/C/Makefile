@@ -1,6 +1,6 @@
 files=GEE
 
-files=GEE hello
+files=GEE GEE2
 
 all: ${files}
 
@@ -13,8 +13,5 @@ util.o: util.c util.h
 GEE: GEE.c util.o
 	cc -o GEE GEE.c util.o -lm
 
-hello: hello.c
-	cc -o hello hello.c
-
-
-
+GEE2: GEE2.c util.o
+	cc -o GEE2 GEE2.c util.o -lm
