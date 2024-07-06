@@ -16,19 +16,57 @@ save_offset=0
 
 t0 = time.time()
 
+# NOTATION:
+# Let G=(V,E) be a graph
+# and Z be an embedding with K hidden dimensions
+# Thus, Z is an array with dtype of np.float32 and shape: (|V|, K)
+# Y is a sequence of |V| class labels, where 0 <= Y[i] < K
+
+# G will be represented with X0, X1, X2.  All three vector have length of |E|.
+# X0 and X1 are stored with dtype of np.int32, and X2 is stored with dtype of np.float32
+# X2 defaults to ones, if not specified
+
+# INITIALIZATION:
+# If --input_directory is specified, then Z starts with that embedding.
+# If not, Z is initialized to zeros, and Y is initialized with random labels (maintaining the invariant,0 <= Y[i] < K)
+
+# ITERATIONS:
+# For each iteration,
+#   we estimate then next Y from the previous Z
+#   and then we use that Y to estimate the next Z
+
+# RESTARTING:
+# By default, we start with --iteration_start of 0 and --iteration_end of 20
+# Intermediate values are written to --save_prefix, so one can start with a previously completed iteration
+
+# INCREMENTAL UPDATES:
+#
+# INCREMENTAL UPDATES Case 1: adding rows
+# If one computed a previous embedding, Zprev, with a previous graph, Gprev=(Vprev, Eprev),
+# one can use that embedding with a new graph, G=(V,E), where Vprev is a subset of V and Eprev is a subset of E.
+# The new rows of Z are initialized with zeros.
+#
+# INCREMENTAL UPDATES Case 2: adding columns
+# One can specify additional columns by using the optional arg, --hidden_dimensions, to specify more rows than Z.
+# If so, the new columns of Z are initialized with zeros.
+
+# BRAIN DAMAGE:
+# The optional arg, --brain_damage, sets some rows of Z to zero.  Hopefully, the iteration will
+# recover reasonable values in that case.
+
 parser = argparse.ArgumentParser()
 # parser.add_argument("-O", "--output", help="output file", required=True)
 parser.add_argument("--save_prefix", help="output file", default=None)
-parser.add_argument("-G", "--input_graph", help="input graph (pathname minus .X.i)", default=None)
-parser.add_argument("-d", "--input_directory", help="input directory with embedding", default=None)
-parser.add_argument("-K", "--hidden_dimensions", type=int, help="override dimensions in embedding (for upsampling)", default=None)
-parser.add_argument("--seed", type=int, help="set random seed", default=None)
+parser.add_argument("-G", "--input_graph", help="input graph (pathname minus .X.i)", required=True)
+parser.add_argument("-d", "--input_directory", help="input directory with embedding (not required; embedding will be initialized with zeros if not specified)", default=None)
+parser.add_argument("-K", "--hidden_dimensions", type=int, help="defaults to embedding shape[1] if not specified, but can be overridden (for upsampling); must be specified if --input directory is not specified", default=None)
+parser.add_argument("--seed", type=int, help="set random seed (if specified)", default=None)
 parser.add_argument("--brain_damage", type=int, help="set <arg> rows of Z to zero", default=None)
-parser.add_argument("--Laplacian", type=int, help="Laplacian [defaults = 1 (True)]", default=1)
-parser.add_argument("--MaxIter", type=int, help="MaxIter [defaults = 50]", default=50)
-parser.add_argument("--safe_mode", type=int, help="set to nonzero to be super careful", default=0)
-parser.add_argument("--iteration_start", type=int, help="options to restart with iteration", default=0)
-parser.add_argument("--iteration_end", type=int, help="options to restart with iteration", default=20)
+# parser.add_argument("--Laplacian", type=int, help="Laplacian [defaults = 1 (True)]", default=1)
+parser.add_argument("--MaxIter", type=int, help="MaxIter (used in kmeans) [defaults = 50]", default=50)
+# parser.add_argument("--safe_mode", type=int, help="set to nonzero to be super careful", default=0)
+parser.add_argument("--iteration_start", type=int, help="defaults to 0; specify with nonzero to restart at a previously completed iteration", default=0)
+parser.add_argument("--iteration_end", type=int, help="defaults to 20; specify to stop eariler, or continue longer", default=20)
 args = parser.parse_args()
 
 # Supress/hide the warning
@@ -93,14 +131,19 @@ def directory_to_config(dir):
            'embedding' : embedding_from_dir(dir, K)}
 
 def read_graph(fn, old_to_new):
-  if fn is None: return
-  G =  { 'X0' : old_to_new[map_int32(fn + '.X.i')],
-         'X1' : old_to_new[map_int32(fn + '.Y.i')]}
-  X2path = fn + '.W.f'
-  if not os.path.exists(X2path):
-    G['X2'] = np.ones(len(G['X0']), dtype=np.float32)
-  else:
-    G['X2'] = map_float32(X2path)
+    if fn is None: return
+    G =  { 'X0' : old_to_new[map_int32(fn + '.X.i')],
+           'X1' : old_to_new[map_int32(fn + '.Y.i')]}
+    assert G['X0'] == G['X1'], 'expected |X0| == |X1|'
+    G['nVertices'] = 1 + max(np.max(G['X0']), np.max(G['X1']))
+    G['nEdges'] = len(G['X0'])
+
+    X2path = fn + '.W.f'
+    if not os.path.exists(X2path):
+        G['X2'] = np.ones(len(G['X0']), dtype=np.float32)
+    else:
+        G['X2'] = map_float32(X2path)
+
   return G
 
 save_offset=args.iteration_start
@@ -109,16 +152,17 @@ def save_X(G):
   global save_offset
   assert not args.save_prefix is None, '--save_prefix must be specified'
 
-  if args.safe_mode > 0:
-    X0path = args.save_prefix + '.X0.%d.i' % save_offset
-    X1path = args.save_prefix + '.X1.%d.i' % save_offset
-    X2path = args.save_prefix + '.X2.%d.f' % save_offset
-    if os.path.exists(X0path):
-      return X0path,X1path,X2path
-  else:
-    X0path = args.save_prefix + '.X0.i'
-    X1path = args.save_prefix + '.X1.i'
-    X2path = args.save_prefix + '.X2.f'
+  # if args.safe_mode > 0:
+  #   X0path = args.save_prefix + '.X0.%d.i' % save_offset
+  #   X1path = args.save_prefix + '.X1.%d.i' % save_offset
+  #   X2path = args.save_prefix + '.X2.%d.f' % save_offset
+  #   if os.path.exists(X0path):
+  #     return X0path,X1path,X2path
+
+  
+  X0path = args.save_prefix + '.X0.i'
+  X1path = args.save_prefix + '.X1.i'
+  X2path = args.save_prefix + '.X2.f'
 
   X0 = G['X0'].astype(np.int32)
   X1 = G['X1'].astype(np.int32)
@@ -167,10 +211,12 @@ def create_Z(G, Y, Zprev_path, norm):
       "--X1", X1path, 
       "--X2", X2path,
       "--Y", Ypath, 
-      "--Zprev", Zprev_path, 
       "--Zout", Zpath])
 
+  if not Zprev_path is None:
+      cmd += '--Zprev' + Zprev_path
   if norm: cmd += ' --normalize'
+
   print('cmd: ' + cmd, file=sys.stderr)
   sys.stderr.flush()
   # os.system(cmd)
@@ -196,8 +242,9 @@ def faiss_kmeans(Z, K, max_iter):
     print('%0.3f sec: faiss_kmeans, found labels, RMS = %f' % (time.time() - t0, np.sqrt(np.mean(dist*dist))), file=sys.stderr)
     return labels.reshape(-1)
 
-def create_Y(Z, K):
+def create_Y(Z):
     # K = args.n_components
+    K = Z.shape[1]
     max_iter = args.MaxIter
     # kmeans = MiniBatchKMeans(n_clusters=K, max_iter = max_iter).fit(Z)
     # labels = kmeans.labels_ # shape(n,)
@@ -209,11 +256,15 @@ assert args.input_directory or args.graph, 'need to specify --input_directory or
 config = directory_to_config(args.input_directory)
 G = read_graph(args.input_graph, config['map32'])
 
+Z1 = None
+Zpath = None
+
 if args.iteration_start == 0:
     if not config is None:
         Z1 = config['embedding']
         Zpath = args.input_directory + '/embedding.f'
-else:
+else: 
+    assert args.iteration_start > 0, 'assertion failed'
     Zpath = args.save_prefix + '.Z.%d.f' % (save_offset-1)
     Z1 =  map_float32(Zpath).reshape(-1, config['record_size'])
 
@@ -231,9 +282,9 @@ if args.iteration_start == 0 and not args.hidden_dimensions is None:
     Zpath = args.save_prefix + '.Z.init.f'
     Z1.tofile(Zpath)
 
-# Create rows with zeros
+# Replace rows with zeros
 if args.iteration_start == 0 and not args.brain_damage is None:
-    newZ1 = np.copy(Z1[:,0:args.dimensions])
+    newZ1 = np.copy(Z1[:,0:args.hidden_dimensions])
     newZ1[np.random.choice(Z1.shape[0], args.brain_damage),:] = 0
     Z1 = newZ1
     Zpath = args.save_prefix + '.Z.init.f'
@@ -244,7 +295,11 @@ for iteration in range(args.iteration_start, args.iteration_end):
   print('%0.3f sec: working on iteration: %d' % (time.time() - t0, iteration), file=sys.stderr)
   sys.stderr.flush()
 
-  Y1 = create_Y(Z1, Z1.shape[1])
+  if Z1 is None:
+      assert not args.hidden_dimension is None, 'must specify --hidden_dimensions if --input_directory is not specified'
+      Y1 = np.random.choice(args.hidden_dimension, G['nVertices'], dtype=np.int32)
+  else:
+      Y1 = create_Y(Z1)
 
   print('%0.3f sec: Y1 computed, iteration: %d' % (time.time() - t0, iteration), file=sys.stderr)
   if not Yprev is None:

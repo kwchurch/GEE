@@ -171,19 +171,18 @@ int main(int ac, char **av)
 
   Z = (float *)malloc(sizeof(float) * n * k);
   if(!Z) fatal("malloc failed", err);
+  nZ = n * k;
+  fprintf(err, "initializing Z to %ld zeros\n", nZ);
+  fflush(err);
+  memset(Z, 0, sizeof(float) * nZ);
 
-  if(!Zfilename) {
-    nZ = n * k;
-    fprintf(err, "initializing Z to %ld zeros\n", nZ);
-    fflush(err);
-    memset(Z, 0, sizeof(float) * nZ);
-  }
-  else {    
+  if(Zfilename) {
     fprintf(err, "about to read Z from %s\n", Zfilename);
     fflush(err);
 
-    Z = (float *)readchars(Zfilename, &nZ, err);
-    nZ /= sizeof(float);
+    FILE *Zfd = fopen(Zfilename, "rb");
+    if(!Zfd) fatal("open failed", err);
+    nZ = fread(Z, sizeof(float), n*k, Zfd);
     fprintf(err, "Z: %ld floats in %s (Z)\n", nZ, Zfilename);
     fflush(err);
 
@@ -197,9 +196,9 @@ int main(int ac, char **av)
   }
 
   if(nZ != n * k) {
-    fprintf(err, "nZ = %ld, n = %ld, k = %ld\n", nZ, n, k);
+    fprintf(err, "Warning, NZ != n*k, where nZ = %ld, n = %ld, k = %ld\n", nZ, n, k);
+    fprintf(err, "This is expected if the graph has been updated with additional vertices since embedding (Z) was computed.\n", nZ, n, k);
     fflush(err);
-    fatal("assertion failed", err);
   }
 
   if (X0 == NULL || X1 == NULL || X2 == NULL) fatal("assertion failed (X)", err);

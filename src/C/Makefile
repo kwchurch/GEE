@@ -1,6 +1,6 @@
 files=GEE
 
-files=GEE GEE2
+files=GEE2
 
 all: ${files}
 
