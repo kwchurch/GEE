@@ -131,6 +131,13 @@ def directory_to_config(dir):
            'embedding' : embedding_from_dir(dir, K)}
 
 def read_graph(fn, old_to_new):
+    """
+    X0, X1, X2 specifies the graph: (V, E)
+    all three vectors have the same length: s = |E|;
+    The elements in X0, X1 specify the edges E
+    X2 specifies the weights for each edge
+    """
+
     if fn is None: return
     G =  { 'X0' : old_to_new[map_int32(fn + '.X.i')],
            'X1' : old_to_new[map_int32(fn + '.Y.i')]}
@@ -144,7 +151,7 @@ def read_graph(fn, old_to_new):
     else:
         G['X2'] = map_float32(X2path)
 
-  return G
+    return G
 
 save_offset=args.iteration_start
 
@@ -161,6 +168,8 @@ def save_X(G):
 
   
   X0path = args.save_prefix + '.X0.i'
+  if os.path.exists(X0path): return
+
   X1path = args.save_prefix + '.X1.i'
   X2path = args.save_prefix + '.X2.f'
 
@@ -173,26 +182,11 @@ def save_X(G):
   X2.tofile(X2path)
   return X0path,X1path,X2path
 
-# G = (V, E)
-# K is the number of hidden dimensions: args.n_components
-# Z is an embedding with shape (|V|, K)
-# X0, X1, X2 specify the graph
-#    all three vectors have the same length: s = |E|;
-#    The elements in X0, X1 specify the edges E
-#    X2 specifies the weights for each edge
-
 def create_Z(G, Y, Zprev_path, norm):
-  """
-  X0, X1, X2 specifies the graph: (V, E)
-  all three vectors have the same length: s = |E|;
-  The elements in X0, X1 specify the edges E
-  X2 specifies the weights for each edge
-  """
-
   n = len(Y)
   global save_offset
 
-  gee_t0 = time.time()          # added by kwc
+  gee_t0 = time.time()
   
   X0path,X1path,X2path = save_X(G)
 
@@ -235,9 +229,9 @@ def faiss_kmeans(Z, K, max_iter):
     kwargs = {}
     if not args.seed is None:
         kwargs['seed'] = args.seed
-    kmeans = faiss.Kmeans(d=Z.shape[1], k=K, niter=max_iter)
+    kmeans = faiss.Kmeans(d=Z.shape[1], k=K, niter=max_iter, verbose=True)
     kmeans.train(Z)
-    print('%0.3f sec: faiss_kmeans, finished training' % (time.time() - t0), file=sys.stderr)
+    print('%0.3f sec: faiss_kmeans, finished training, stats: %s' % (time.time() - t0, str(kmeans.iteration_stats)), file=sys.stderr)
     dist, labels = kmeans.index.search(Z, 1)
     print('%0.3f sec: faiss_kmeans, found labels, RMS = %f' % (time.time() - t0, np.sqrt(np.mean(dist*dist))), file=sys.stderr)
     return labels.reshape(-1)
