@@ -27,7 +27,7 @@ t0 = time.time()
 # X2 defaults to ones, if not specified
 
 # INITIALIZATION:
-# If --cold_start is specified, then Z is initialized to zeros, and Y is initialized with random labels (maintaining the invariant,0 <= Y[i] < K)
+# If --cold_start is specified, then Z is initialized to zeros, and Y is initialized with random labels (maintaining the invariant, 0 <= Y[i] < K)
 # If not, Z is initialized with values from --input_directory
 
 # ITERATIONS:
@@ -144,7 +144,7 @@ def read_graph(fn, old_to_new):
     if fn is None: return
     G =  { 'X0' : old_to_new[map_int32(fn + '.X.i')],
            'X1' : old_to_new[map_int32(fn + '.Y.i')]}
-    assert G['X0'] == G['X1'], 'expected |X0| == |X1|'
+    assert len(G['X0']) == len(G['X1']), 'expected |X0| == |X1|'
     G['nVertices'] = 1 + max(np.max(G['X0']), np.max(G['X1']))
     G['nEdges'] = len(G['X0'])
 
@@ -290,8 +290,8 @@ for iteration in range(args.iteration_start, args.iteration_end):
   sys.stderr.flush()
 
   if Z1 is None:                # cold start
-      assert not args.hidden_dimension is None, 'must specify --hidden_dimensions if --cold_start is specified'
-      Y1 = np.random.choice(args.hidden_dimension, G['nVertices'], dtype=np.int32)
+      assert not args.hidden_dimensions is None, 'must specify --hidden_dimensions if --cold_start is specified'
+      Y1 = np.random.choice(args.hidden_dimensions, G['nVertices']).astype(np.int32)
   else:
       Y1 = create_Y(Z1)
 
