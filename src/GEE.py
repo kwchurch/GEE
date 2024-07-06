@@ -27,8 +27,8 @@ t0 = time.time()
 # X2 defaults to ones, if not specified
 
 # INITIALIZATION:
-# If --input_directory is specified, then Z starts with that embedding.
-# If not, Z is initialized to zeros, and Y is initialized with random labels (maintaining the invariant,0 <= Y[i] < K)
+# If --cold_start is specified, then Z is initialized to zeros, and Y is initialized with random labels (maintaining the invariant,0 <= Y[i] < K)
+# If not, Z is initialized with values from --input_directory
 
 # ITERATIONS:
 # For each iteration,
@@ -38,6 +38,8 @@ t0 = time.time()
 # RESTARTING:
 # By default, we start with --iteration_start of 0 and --iteration_end of 20
 # Intermediate values are written to --save_prefix, so one can start with a previously completed iteration
+# and continue with additional iterations if desired.
+# One can even continue with additional iterations beyond previous values of iteration_end.
 
 # INCREMENTAL UPDATES:
 #
@@ -56,9 +58,10 @@ t0 = time.time()
 
 parser = argparse.ArgumentParser()
 # parser.add_argument("-O", "--output", help="output file", required=True)
+parser.add_argument("--cold_start", help="start with random classes for Y and zeros for Z", action='store_true')
 parser.add_argument("--save_prefix", help="output file", default=None)
 parser.add_argument("-G", "--input_graph", help="input graph (pathname minus .X.i)", required=True)
-parser.add_argument("-d", "--input_directory", help="input directory with embedding (not required; embedding will be initialized with zeros if not specified)", default=None)
+parser.add_argument("-d", "--input_directory", help="input directory with embedding (not required; embedding will be initialized with zeros if not specified)", required=True)
 parser.add_argument("-K", "--hidden_dimensions", type=int, help="defaults to embedding shape[1] if not specified, but can be overridden (for upsampling); must be specified if --input directory is not specified", default=None)
 parser.add_argument("--seed", type=int, help="set random seed (if specified)", default=None)
 parser.add_argument("--brain_damage", type=int, help="set <arg> rows of Z to zero", default=None)
@@ -244,29 +247,26 @@ def create_Y(Z):
     # labels = kmeans.labels_ # shape(n,)
     labels = faiss_kmeans(Z, K, max_iter)
     return labels
-
-assert args.input_directory or args.input_graph, 'need to specify --input_directory or --input_graph'
  
 config = directory_to_config(args.input_directory)
 G = read_graph(args.input_graph, config['map32'])
 
-Z1 = None
-Zpath = None
-
-if args.iteration_start == 0:
-    if not config is None:
-        Z1 = config['embedding']
-        Zpath = args.input_directory + '/embedding.f'
-else: 
-    assert args.iteration_start > 0, 'assertion failed'
+if args.iteration_start > 0:
     Zpath = args.save_prefix + '.Z.%d.f' % (save_offset-1)
     Z1 =  map_float32(Zpath).reshape(-1, config['record_size'])
+elif args.cold_start:
+    Z1 = None
+    Zpath = None
+elif args.iteration_start == 0:
+    Z1 = config['embedding']
+    Zpath = args.input_directory + '/embedding.f'
+else: assert False, 'there are no other cases'
 
 Yprev = None
 
 # Create extra col with zeros
 # for upsampling
-if args.iteration_start == 0 and not args.hidden_dimensions is None:
+if not Z1 is None and args.iteration_start == 0 and not args.hidden_dimensions is None:
     if args.hidden_dimensions <= Z1.shape[1]:
         newZ1 = np.copy(Z1[:,0:args.dimensions])
     else:
@@ -277,7 +277,7 @@ if args.iteration_start == 0 and not args.hidden_dimensions is None:
     Z1.tofile(Zpath)
 
 # Replace rows with zeros
-if args.iteration_start == 0 and not args.brain_damage is None:
+if Z1 is None and args.iteration_start == 0 and not args.brain_damage is None:
     newZ1 = np.copy(Z1[:,0:args.hidden_dimensions])
     newZ1[np.random.choice(Z1.shape[0], args.brain_damage),:] = 0
     Z1 = newZ1
@@ -289,8 +289,8 @@ for iteration in range(args.iteration_start, args.iteration_end):
   print('%0.3f sec: working on iteration: %d' % (time.time() - t0, iteration), file=sys.stderr)
   sys.stderr.flush()
 
-  if Z1 is None:
-      assert not args.hidden_dimension is None, 'must specify --hidden_dimensions if --input_directory is not specified'
+  if Z1 is None:                # cold start
+      assert not args.hidden_dimension is None, 'must specify --hidden_dimensions if --cold_start is specified'
       Y1 = np.random.choice(args.hidden_dimension, G['nVertices'], dtype=np.int32)
   else:
       Y1 = create_Y(Z1)
