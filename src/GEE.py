@@ -245,7 +245,7 @@ def create_Y(Z):
     labels = faiss_kmeans(Z, K, max_iter)
     return labels
 
-assert args.input_directory or args.graph, 'need to specify --input_directory or --input_graph'
+assert args.input_directory or args.input_graph, 'need to specify --input_directory or --input_graph'
  
 config = directory_to_config(args.input_directory)
 G = read_graph(args.input_graph, config['map32'])
