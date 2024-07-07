@@ -61,7 +61,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--cold_start", help="start with random classes for Y and zeros for Z", action='store_true')
 parser.add_argument("--save_prefix", help="output file", default=None)
 parser.add_argument("-G", "--input_graph", help="input graph (pathname minus .X.i)", required=True)
-parser.add_argument("-d", "--input_directory", help="input directory with embedding (not required; embedding will be initialized with zeros if not specified)", required=True)
+parser.add_argument("-d", "--input_directory", help="input directory with embedding", default=None)
 parser.add_argument("-K", "--hidden_dimensions", type=int, help="defaults to embedding shape[1] if not specified, but can be overridden (for upsampling); must be specified if --input directory is not specified", default=None)
 parser.add_argument("--seed", type=int, help="set random seed (if specified)", default=None)
 parser.add_argument("--brain_damage", type=int, help="set <arg> rows of Z to zero", default=None)
@@ -124,14 +124,21 @@ def embedding_from_dir(dir, K):
     return np.memmap(fn, dtype=np.float32, shape=(int(fn_len/(4*K)), K), mode='r')
 
 def directory_to_config(dir):
-  if dir is None: return
-  K = record_size_from_dir(dir)
-  return { 'record_size' : K,
-           'dir' : dir,
-           'map32' : map32_from_dir(dir),
-           'imap32' : imap32_from_dir(dir),
-           'map64' : map64_from_dir(dir),
-           'embedding' : embedding_from_dir(dir, K)}
+    if dir is None:
+        assert not args.hidden_dimensions, 'need to specify --hidden_dimensions if --input_directory is not specified'
+        return { 'record_size' : args.hidden_dimensions,
+                 'dir' : None,
+                 'map32' : None,
+                 'imap32' : None,
+                 'map64' : None,
+                 'embedding' : None}
+    K = record_size_from_dir(dir)
+    return { 'record_size' : K,
+             'dir' : dir,
+             'map32' : map32_from_dir(dir),
+             'imap32' : imap32_from_dir(dir),
+             'map64' : map64_from_dir(dir),
+             'embedding' : embedding_from_dir(dir, K)}
 
 def read_graph(fn, old_to_new):
     """
@@ -142,8 +149,14 @@ def read_graph(fn, old_to_new):
     """
 
     if fn is None: return
-    G =  { 'X0' : old_to_new[map_int32(fn + '.X.i')],
-           'X1' : old_to_new[map_int32(fn + '.Y.i')]}
+
+    if old_to_new is None:
+        G =  { 'X0' : map_int32(fn + '.X.i'),
+               'X1' : map_int32(fn + '.Y.i')}
+    else:
+        G =  { 'X0' : old_to_new[map_int32(fn + '.X.i')],
+               'X1' : old_to_new[map_int32(fn + '.Y.i')]}
+
     assert len(G['X0']) == len(G['X1']), 'expected |X0| == |X1|'
     G['nVertices'] = 1 + max(np.max(G['X0']), np.max(G['X1']))
     G['nEdges'] = len(G['X0'])
@@ -153,6 +166,7 @@ def read_graph(fn, old_to_new):
         G['X2'] = np.ones(len(G['X0']), dtype=np.float32)
     else:
         G['X2'] = map_float32(X2path)
+        assert len(G['X0']) == len(G['X2']), 'expected |X0| == |X2|'
 
     return G
 
@@ -161,28 +175,21 @@ save_offset=args.iteration_start
 def save_X(G):
   global save_offset
   assert not args.save_prefix is None, '--save_prefix must be specified'
-
-  # if args.safe_mode > 0:
-  #   X0path = args.save_prefix + '.X0.%d.i' % save_offset
-  #   X1path = args.save_prefix + '.X1.%d.i' % save_offset
-  #   X2path = args.save_prefix + '.X2.%d.f' % save_offset
-  #   if os.path.exists(X0path):
-  #     return X0path,X1path,X2path
-
   
   X0path = args.save_prefix + '.X0.i'
-  if os.path.exists(X0path): return
-
   X1path = args.save_prefix + '.X1.i'
   X2path = args.save_prefix + '.X2.f'
 
-  X0 = G['X0'].astype(np.int32)
-  X1 = G['X1'].astype(np.int32)
-  X2 = G['X2'].astype(np.float32)
+  if args.iteration_start == 0:
+      print('%0.3f sec: save_X, saving graph' % (time.time() - t0), file=sys.stderr)
+      X0 = G['X0'].astype(np.int32)
+      X1 = G['X1'].astype(np.int32)
+      X2 = G['X2'].astype(np.float32)
 
-  X0.tofile(X0path)
-  X1.tofile(X1path)
-  X2.tofile(X2path)
+      X0.tofile(X0path)
+      X1.tofile(X1path)
+      X2.tofile(X2path)
+
   return X0path,X1path,X2path
 
 def create_Z(G, Y, Zprev_path, norm):
@@ -211,7 +218,7 @@ def create_Z(G, Y, Zprev_path, norm):
       "--Zout", Zpath])
 
   if not Zprev_path is None:
-      cmd += '--Zprev' + Zprev_path
+      cmd += ' --Zprev ' + Zprev_path
   if norm: cmd += ' --normalize'
 
   print('cmd: ' + cmd, file=sys.stderr)
@@ -249,7 +256,10 @@ def create_Y(Z):
     return labels
  
 config = directory_to_config(args.input_directory)
-G = read_graph(args.input_graph, config['map32'])
+if config is None:
+    G = read_graph(args.input_graph, None)
+else:
+    G = read_graph(args.input_graph, config['map32'])
 
 if args.iteration_start > 0:
     Zpath = args.save_prefix + '.Z.%d.f' % (save_offset-1)
@@ -268,10 +278,11 @@ Yprev = None
 # for upsampling
 if not Z1 is None and args.iteration_start == 0 and not args.hidden_dimensions is None:
     if args.hidden_dimensions <= Z1.shape[1]:
-        newZ1 = np.copy(Z1[:,0:args.dimensions])
+        newZ1 = np.copy(Z1[:,0:args.hidden_dimensions])
     else:
         newZ1 = np.zeros((Z1.shape[0], args.hidden_dimensions), dtype=np.float32)
         newZ1[:,0:Z1.shape[1]] = Z1
+    config['record_size'] = args.hidden_dimensions
     Z1 = newZ1
     Zpath = args.save_prefix + '.Z.init.f'
     Z1.tofile(Zpath)
