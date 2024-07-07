@@ -22,13 +22,19 @@ t0 = time.time()
 # Thus, Z is an array with dtype of np.float32 and shape: (|V|, K)
 # Y is a sequence of |V| class labels, where 0 <= Y[i] < K
 
-# G will be represented with X0, X1, X2.  All three vector have length of |E|.
+# G will be represented with X0, X1, X2.  All three vectors have length of |E|.
+# Edges go from x0 in X0 to x1 in X2 with weights x3 in X3.
 # X0 and X1 are stored with dtype of np.int32, and X2 is stored with dtype of np.float32
-# X2 defaults to ones, if not specified
+# X2 is optional, and defaults to a vector of ones (if not specified).
 
 # INITIALIZATION:
 # If --cold_start is specified, then Z is initialized to zeros, and Y is initialized with random labels (maintaining the invariant, 0 <= Y[i] < K)
+# If --new_cold_start is specified, then initialization is similar to --cold_start, but with an attempt to assign the same label to Y if the vertices are near one another in G.
 # If not, Z is initialized with values from --input_directory
+#
+# Experimental results suggest that --new_cold_start is better than --cold_start, but it is even better to start from ProNE
+# By better, we can measure cosine similarities of papers that are near one another in citation graph,
+# as well as intrinsic measures such as RMS distances of vectors to their nearest centroid (in kmeans), and ARI similarities of Yprev to Ynext.
 
 # ITERATIONS:
 # For each iteration,
@@ -59,6 +65,7 @@ t0 = time.time()
 parser = argparse.ArgumentParser()
 # parser.add_argument("-O", "--output", help="output file", required=True)
 parser.add_argument("--cold_start", help="start with random classes for Y and zeros for Z", action='store_true')
+parser.add_argument("--new_cold_start", help="like cold_start but try to assign vertices near one another the same label in Y", action='store_true')
 parser.add_argument("--save_prefix", help="output file", default=None)
 parser.add_argument("-G", "--input_graph", help="input graph (pathname minus .X.i)", required=True)
 parser.add_argument("-d", "--input_directory", help="input directory with embedding", default=None)
@@ -241,10 +248,29 @@ def faiss_kmeans(Z, K, max_iter):
         kwargs['seed'] = args.seed
     kmeans = faiss.Kmeans(d=Z.shape[1], k=K, niter=max_iter, verbose=True)
     kmeans.train(Z)
-    print('%0.3f sec: faiss_kmeans, finished training, stats: %s' % (time.time() - t0, str(kmeans.iteration_stats)), file=sys.stderr)
+    print('%0.3f sec: faiss_kmeans, finished training, stats: %s' % (time.time() - t0, '\n\t'.join(map(str, kmeans.iteration_stats))), file=sys.stderr)
     dist, labels = kmeans.index.search(Z, 1)
     print('%0.3f sec: faiss_kmeans, found labels, RMS = %f' % (time.time() - t0, np.sqrt(np.mean(dist*dist))), file=sys.stderr)
     return labels.reshape(-1)
+
+def create_Y_from_cold_start(G):
+    assert not args.hidden_dimensions is None, 'must specify --hidden_dimensions if --cold_start is specified'
+    R = np.random.choice(args.hidden_dimensions, G['nVertices']).astype(np.int32)
+    if not args.new_cold_start:
+        return R
+    else:
+        # when possible, vertices near one another in G should receive the same label
+        res = -np.ones(G['nVertices'], dtype=np.int32) # empty
+        for x0,x1,rand in zip(G['X0'], G['X1'], R):
+            if res[x0] < 0 and res[x1] < 0: res[x0] = res[x1] = rand
+            elif res[x0] >= 0 and res[x1] >= 0: continue
+            else: res[x0] = res[x1] = max(res[x0], res[x1])
+
+        # There shouldn't be any values less than 0, but if there are, fill them in
+        s = res < 0
+        if np.sum(s) > 0: res[s] = R[s]
+
+        return res
 
 def create_Y(Z):
     # K = args.n_components
@@ -264,7 +290,7 @@ else:
 if args.iteration_start > 0:
     Zpath = args.save_prefix + '.Z.%d.f' % (save_offset-1)
     Z1 =  map_float32(Zpath).reshape(-1, config['record_size'])
-elif args.cold_start:
+elif args.cold_start or args.new_cold_start:
     Z1 = None
     Zpath = None
 elif args.iteration_start == 0:
@@ -300,11 +326,8 @@ for iteration in range(args.iteration_start, args.iteration_end):
   print('%0.3f sec: working on iteration: %d' % (time.time() - t0, iteration), file=sys.stderr)
   sys.stderr.flush()
 
-  if Z1 is None:                # cold start
-      assert not args.hidden_dimensions is None, 'must specify --hidden_dimensions if --cold_start is specified'
-      Y1 = np.random.choice(args.hidden_dimensions, G['nVertices']).astype(np.int32)
-  else:
-      Y1 = create_Y(Z1)
+  if Z1 is None: Y1 = create_Y_from_cold_start(G)
+  else: Y1 = create_Y(Z1)
 
   print('%0.3f sec: Y1 computed, iteration: %d' % (time.time() - t0, iteration), file=sys.stderr)
   if not Yprev is None:
