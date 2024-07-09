@@ -151,4 +151,8 @@ but not as good as ProNE, even if we computed ProNE from a smaller graph, and us
 <h2>Incremental Upates</h2>
 
 Suppose we have computed $Z_{G_i}$ from a previous graph $G_i$.  Since then, we have a new graph, $G_{i+1}$, that is similar to $G_i$, though
-there may be a few additional edges, and a few edges may have changed.  We recommend running GEE on $G_{i+1}$, but initialize $Z_0$ with $Z_{G_i}$.
+there may be a few additional edges, and a few edges may have changed.  To obtain a quick-and-dirty estimate of $Z_{G_{i+1}}$, we recommend running GEE on $G_{i+1}$, but initialize $Z_0$ with $Z_{G_i}$.
+When there is more time, we recommend running ProNE on ${G_{i+1}}$ to obtain better estimes of $Z_{G_{i+1}}$.
+
+
+
