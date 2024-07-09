@@ -109,14 +109,23 @@ hyperparameter: max_points_per_centroid.
 for the output Z, fill in the extra rows and columns with zeros.
 
 We have found that ARI scores tend to be better if we start with ProNE than if we start from a cold start.
+
+<h3>New Cold Start</h3>
+
 The code supports an option for a new cold start, which uses a simple heuristic to improve the chances
-that vertices near one another in G will receive the same label.
+that vertices near one another in G will receive the same label.  Start by setting all the values in Y to -1 (unassigned).
+Then iterate over the edges, assigning both nodes in the edge to the same (random) label (when possible).  That is, if they are both unassigned, then
+assign them to the same random value between $0$ and $K-1$.  If one is assigned and the other is not, then fill in the missing value
+with the non-miasing value.  At the end of the iteration, all the values in Y should be assigned to a value between $0$ and $K-1$.
 
 <pre>
-Y = -np.ones(|V|)
+Y = -np.ones(|V|)	# initialize Y to -1 (unassigned)
 for u,v in E:
+    # Both nodes are unassigned
     if Y[u] < 0 and Y[v] < 0: Y[u] = Y[v] = np.random(K, 1)
+    # One node is assigned and one is not
     if (Y[u] > 0) != (Y[v] > 0): Y[u] = Y[v] = max(Y[u], Y[v])
+assert np.sum(Y < 0) == 0, 'Expected all values in Y to be assigned'
 </pre>
 
 Thus, we have three methods for initializing Y and Z:
