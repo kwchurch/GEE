@@ -74,7 +74,8 @@ parser.add_argument("-K", "--hidden_dimensions", type=int, help="defaults to emb
 parser.add_argument("--seed", type=int, help="set random seed (if specified)", default=None)
 parser.add_argument("--brain_damage", type=int, help="set <arg> rows of Z to zero", default=None)
 # parser.add_argument("--Laplacian", type=int, help="Laplacian [defaults = 1 (True)]", default=1)
-parser.add_argument("--MaxIter", type=int, help="MaxIter (used in kmeans) [defaults = 50]", default=50)
+parser.add_argument("--MaxIter", type=int, help="MaxIter (used in kmeans) [defaults = 25]", default=25)
+parser.add_argument("--max_points_per_centroid", type=int, help="Hyperparameter in kmeans", default=None)
 # parser.add_argument("--safe_mode", type=int, help="set to nonzero to be super careful", default=0)
 parser.add_argument("--iteration_start", type=int, help="defaults to 0; specify with nonzero to restart at a previously completed iteration", default=0)
 parser.add_argument("--iteration_end", type=int, help="defaults to 20; specify to stop eariler, or continue longer", default=20)
@@ -252,11 +253,13 @@ def faiss_kmeans(Z, K, max_iter):
     kwargs = {}
     if not args.seed is None:
         kwargs['seed'] = args.seed
+    if not args.max_points_per_centroid is None:
+        kwargs['max_points_per_centroid'] = args.max_points_per_centroid
     kmeans = faiss.Kmeans(d=Z.shape[1], k=K, niter=max_iter)
     kmeans.train(Z)
     print('%0.3f sec: faiss_kmeans, finished training, stats: %s' % (time.time() - t0, '\n\t'.join(map(str, kmeans.iteration_stats))), file=sys.stderr)
     dist, labels = kmeans.index.search(Z, 1)
-    print('%0.3f sec: faiss_kmeans, found labels, RMS = %f' % (time.time() - t0, np.sqrt(np.mean(dist*dist))), file=sys.stderr)
+    print('%0.3f sec: faiss_kmeans, found labels, inertia (mean distance to closest cluster) = %f' % (time.time() - t0, np.mean(dist)), file=sys.stderr) # used to be dist*dist
     return labels.reshape(-1)
 
 def create_Y_from_cold_start(G):

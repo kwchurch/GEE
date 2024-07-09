@@ -88,7 +88,7 @@ than alternatives in sklearn (including <a href="https://scikit-learn.org/stable
 
 <h3>Metrics</h3>
 
-* RMS error (from kmeans): let D be a vector of distances from each row in Z to the closest centroid.  Return sqrt(mean($D^2$)).
+* inertia (from kmeans): let D be a vector of distances from each row in Z to the closest centroid.  Return mean(D).
 * ARI score: (for comparing labels from Y to labels from the previous estimate of Y): computed with <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.adjusted_rand_score.html">adjusted_rand_score</a>.
 
 We observe that ARI tends to increase with iterations.  
@@ -97,8 +97,10 @@ Early termination: stop iterating when ARI is (nearly) 1.
 This is likely to happen quickly, when Y and Z are initialized well.
 In general, ARI scores tend to improve (increase) with iterations.
 
-RMS error tends to depend on the initialization of Y and Z, as well as K.
-RMS error does not seem to improve (decrease) with iterations.
+Inertia tends to depend on the initialization of Y and Z, as well as
+K.  It is not clear why, but inertia does not seem to improve
+(decrease) with iterations.  The answer may depend on a
+hyperparameter: max_points_per_centroid.
 
 <h2>Initialization</h2>
 
