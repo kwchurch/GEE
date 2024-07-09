@@ -6,6 +6,7 @@ from sklearn.metrics.cluster import adjusted_rand_score
 import faiss
 from sklearn import metrics
 import time
+from scipy.sparse import load_npz, csr_matrix
 
 print('GEE.py: ' + str(sys.argv), file=sys.stderr)
 sys.stderr.flush()
@@ -67,7 +68,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--cold_start", help="start with random classes for Y and zeros for Z", action='store_true')
 parser.add_argument("--new_cold_start", help="like cold_start but try to assign vertices near one another the same label in Y", action='store_true')
 parser.add_argument("--save_prefix", help="output file", default=None)
-parser.add_argument("-G", "--input_graph", help="input graph (pathname minus .X.i)", required=True)
+parser.add_argument("-G", "--input_graph", help="input graph (pathname minus .X.i or sparse graph in file ending with .npz)", required=True)
 parser.add_argument("-d", "--input_directory", help="input directory with embedding", default=None)
 parser.add_argument("-K", "--hidden_dimensions", type=int, help="defaults to embedding shape[1] if not specified, but can be overridden (for upsampling); must be specified if --input directory is not specified", default=None)
 parser.add_argument("--seed", type=int, help="set random seed (if specified)", default=None)
@@ -132,7 +133,7 @@ def embedding_from_dir(dir, K):
 
 def directory_to_config(dir):
     if dir is None:
-        assert not args.hidden_dimensions, 'need to specify --hidden_dimensions if --input_directory is not specified'
+        assert not args.hidden_dimensions is None, 'need to specify --hidden_dimensions if --input_directory is not specified'
         return { 'record_size' : args.hidden_dimensions,
                  'dir' : None,
                  'map32' : None,
@@ -156,8 +157,13 @@ def read_graph(fn, old_to_new):
     """
 
     if fn is None: return
+    
+    if fn.endswith('.npz'):
+        M = load_npz(fn)
+        X0,X1 = M.nonzero()
+        G = { 'X0': X0, 'X1' : X1 }
 
-    if old_to_new is None:
+    elif old_to_new is None:
         G =  { 'X0' : map_int32(fn + '.X.i'),
                'X1' : map_int32(fn + '.Y.i')}
     else:
@@ -246,7 +252,7 @@ def faiss_kmeans(Z, K, max_iter):
     kwargs = {}
     if not args.seed is None:
         kwargs['seed'] = args.seed
-    kmeans = faiss.Kmeans(d=Z.shape[1], k=K, niter=max_iter, verbose=True)
+    kmeans = faiss.Kmeans(d=Z.shape[1], k=K, niter=max_iter)
     kmeans.train(Z)
     print('%0.3f sec: faiss_kmeans, finished training, stats: %s' % (time.time() - t0, '\n\t'.join(map(str, kmeans.iteration_stats))), file=sys.stderr)
     dist, labels = kmeans.index.search(Z, 1)
