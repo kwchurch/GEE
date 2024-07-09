@@ -27,10 +27,10 @@ Cosines of rows of $Z$ can be interpreted in terms of random walks on $G$.
 
 $Y$ is a sequence of $|V|$ class labels, where $0 \le Y[i] < K$.  
 
-Note: $K$ is both the number
+**Note**: $K$ is both the number
 of hidden dimensions in $Z$ as well as the number of class lables in $Y$.
 
-$G$ will be represented with $X0, X1, X2$.  All three vectors have length of $|E|$.
+$G$ will be represented with three vectors: $X0, X1, X2$.  All three vectors have length of $|E|$.
 Edges go from $x0$ in $X0$ to $x1$ in $X2$ with weights $x3$ in $X3$.
 $X0$ and $X1$ are stored with dtype of np.int32, and $X2$ is stored with dtype of np.float32
 $X2$ is optional, and defaults to a vector of ones (if not specified).
@@ -43,7 +43,7 @@ Inputs to GEE:
 * $G$ (required)
 * options for initializing $Y_0$ and $Z_0$ (either from cold start or from something better)
 * options for restarting iterations
-* optional hyper parameters
+* optional hyperparameters
 
 Outputs:
 * $Z_i$: embedding on the $i^{th}$ iteration
@@ -57,7 +57,7 @@ After initialization,
 
 The iterations continue for a fixed number of iterations (a hyperparameter), or when Y doesn't change (much) from one iteration to the next.
 
-<h3>Algorithm 1: Update Z from Y</h3>
+<h3>Algorithm 1: Update $Z_i$ from $Y_i$ and $Z_{i-1}$</h3>
 
 * Input: $G$, $Y_{i-1}$ and $Z_{i-1}$
 * Output: $Z_i$
@@ -65,7 +65,7 @@ The iterations continue for a fixed number of iterations (a hyperparameter), or 
 The simplest case iterates over edges in G with:
 
 <pre>
-for u,v in E:
+for u,v in zip(X0,X1):
     Z[u,Y[v]] += 1/freq(Y[v])
     Z[v,Y[u]] += 1/freq(Y[u])
 </pre>
@@ -77,7 +77,7 @@ The code is slightly more complicated for graphs with weighted edges:
 <p>
 
 <pre>
-for u,v,w in E:
+for u,v,w in zip(X0,X1, X2):
     Z[u,Y[v]] += w/freq(Y[v])
     Z[v,Y[u]] += w/freq(Y[u])
 </pre>
@@ -85,8 +85,8 @@ for u,v,w in E:
 
 <h3>Algorithm 2: Estimate $Y_i$ from $Z_i$</h3>
 
-* Input: Z
-* Output: Y
+* Input: $Z_{i-1}$
+* Output: $Y_i$
 
 <pre>
 K = Z.shape[1]
@@ -99,8 +99,8 @@ than alternatives in sklearn (including <a href="https://scikit-learn.org/stable
 
 <h3>Metrics</h3>
 
-* inertia (from kmeans): let D be a vector of distances from each row in Z to the closest centroid.  Return mean(D).
-* ARI score: (for comparing labels from Y to labels from the previous estimate of Y): computed with <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.adjusted_rand_score.html">adjusted_rand_score</a>.
+* inertia (from kmeans): let $D$ be a vector of distances from each row in $Z$ to the closest centroid.  Return $mean(D)$.
+* ARI score: (for comparing labels from $Y_{i-1}$ and $Y_i$): computed with <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.adjusted_rand_score.html">adjusted_rand_score</a>.
 
 We observe that ARI tends to increase with iterations.  
 
