@@ -118,9 +118,9 @@ for u,v in E:
 
 Thus, we have three methods for initializing Y and Z:
 
-1 cold start
-1 new cold start
-1 ProNE
+ 1. cold start
+ 1. new cold start
+ 1. ProNE
 
 Empirically, we obtain the best ARI scores (after the final iteration), if we start with ProNE.  The new cold start is better than the original cold start,
 but not as good as ProNE, even if we computed ProNE from a smaller graph, and use fewer hidden dimensions.
