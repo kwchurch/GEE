@@ -50,7 +50,7 @@ After initialization,
 * we estimate the next Y from the prevous Z (algorithm 2 in <a href="https://arxiv.org/pdf/2109.13098">paper</a>)
 * and then we use that Y to estimate the next Z (algorithm 1 in <a href="https://arxiv.org/pdf/2109.13098">paper</a>)
 
-The iterations continue for a fixed number of iterations (a hyperparameter), or when Y doesn't change from from one iteration to the next.
+The iterations continue for a fixed number of iterations (a hyperparameter), or when Y doesn't change (much) from one iteration to the next.
 
 <h3>Algorithm 1: Update Z from Y</h3>
 
@@ -116,8 +116,17 @@ for u,v in E:
     if (Y[u] > 0) != (Y[v] > 0): Y[u] = Y[v] = max(Y[u], Y[v])
 </pre>
 
+Thus, we have three methods for initializing Y and Z:
+
+1 cold start
+1 new cold start
+1 ProNE
+
+Empirically, we obtain the best ARI scores (after the final iteration), if we start with ProNE.  The new cold start is better than the original cold start,
+but not as good as ProNE, even if we computed ProNE from a smaller graph, and use fewer hidden dimensions.
+
 <h2>Incremental Upates</h2>
 
-Suppose we have computed $Z_i$ from a previous graph $G_i$.  Since then, we have a new graph, $G_{i+1}$, that is similar to G_i, though
+Suppose we have computed $Z_i$ from a previous graph $G_i$.  Since then, we have a new graph, $G_{i+1}$, that is similar to $G_i$, though
 there may be some additional edges, and some edges may have changed.  We recommend running GEE on $G_{i+1}$, but initialize with $Z_i$.
 
