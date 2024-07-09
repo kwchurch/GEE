@@ -79,7 +79,8 @@ The code is slightly more complicated for graphs with weighted edges.
 
 <pre>
 K = Z.shape[1]
-Y = kmeans(Z,K)
+km = kmeans(Z,K)
+Y = km.labels_
 </pre>
 
 We have found the implementation of kmeans in <a href="https://github.com/facebookresearch/faiss/wiki/Faiss-building-blocks:-clustering,-PCA,-quantization">faiss</a> to be much faster
@@ -87,7 +88,7 @@ than alternatives in sklearn (including <a href="https://scikit-learn.org/stable
 
 <h3>Metrics</h3>
 
-* RMS error (from kmeans): let D be a vector of distances from each row in Z to the closest centroid.  Return sqrt(mean(D)).
+* RMS error (from kmeans): let D be a vector of distances from each row in Z to the closest centroid.  Return sqrt(mean($D^2$)).
 * ARI score: (for comparing labels from Y to labels from the previous estimate of Y): computed with <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.adjusted_rand_score.html">adjusted_rand_score</a>.
 
 We observe that ARI tends to increase with iterations.  
