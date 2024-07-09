@@ -4,9 +4,9 @@
 
 <a href="https://arxiv.org/pdf/2109.13098">GEE</a> is an alternative to 
 <a href="https://www.researchgate.net/profile/Ming-Ding-2/publication/334844418_ProNE_Fast_and_Scalable_Network_Representation_Learning/links/5f1e97f292851cd5fa4b2285/ProNE-Fast-and-Scalable-Network-Representation-Learning.pdf">ProNE</a>.
-Both methods input a graph, G, and
-output an embedding, Z.  Cosines of rows of Z can be interpreted in
-terms of random walks on G.
+Both methods input a graph, $G$, and
+output an embedding, $Z$.  Cosines of rows of $Z$ can be interpreted in
+terms of random walks on $G$.
 
 The bottleneck for ProNE is the SVD in the prefactorization step.  GEE
 is faster than ProNE because it avoids the SVD, though we believe the GEE itertions are likely to get stuck in
@@ -14,7 +14,7 @@ suboptimal local minima, especially if we start from a cold start.  We
 recommend starting GEE from a ProNE embedding for a simpler case with fewer rows
 and fewer columns.
 
-* fewer rows: start with ProNE based on a subgraph of G
+* fewer rows: start with ProNE based on a subgraph of $G$
 * fewer columns: start with ProNE with fewer hidden dimensions
 
 <h2>Notation</h2>
@@ -110,8 +110,8 @@ In general, ARI scores tend to improve (increase) with iterations.
 
 Inertia tends to depend on the initialization of $Y_0$ and $Z_0$, as well as
 $K$.  It is not clear why, but inertia does not seem to improve
-(decrease) with iterations.  The answer may depend on a
-hyperparameter: max_points_per_centroid.
+(decrease) with iterations.  The answer may depend on some details in <a href="https://github.com/facebookresearch/faiss/wiki/Faiss-building-blocks:-clustering,-PCA,-quantization">faiss</a>,
+and especially a hyperparameter: max_points_per_centroid.
 
 <h2>Initialization</h2>
 
