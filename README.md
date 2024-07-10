@@ -100,7 +100,7 @@ than alternatives in sklearn (including <a href="https://scikit-learn.org/stable
 <h3>Metrics</h3>
 
 * inertia (from kmeans): let $D$ be a vector of distances from each row in $Z$ to the closest centroid.  Return $mean(D)$.
-* ARI score: (for comparing labels from $Y_{i-1}$ and $Y_i$): computed with <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.adjusted_rand_score.html">adjusted_rand_score</a>.
+* ARI score: (for comparing labels from $Y_{i-1}$ and $Y_i$), computed with <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.adjusted_rand_score.html">adjusted_rand_score</a>.
 
 We observe that ARI tends to increase with iterations.  
 
@@ -116,7 +116,7 @@ and especially a hyperparameter: max_points_per_centroid.
 <h2>Initialization</h2>
 
 * cold start: set $Z_0$ to a matrix of zeros, and $Y_0$ to a random vector of labels: Y = np.random.choice(K, |V|)
-* ProNE: set $Z_0$ to an embedding from ProNE (perhaps using a subset of G and fewer hidden dimensions).  If the ProNE embedding has fewer rows and/or columns than what is requested
+* ProNE: set $Z_0$ to an embedding from ProNE (perhaps using a subset of $G$ and fewer hidden dimensions).  If the ProNE embedding has fewer rows and/or columns than what is requested
 for $Z_0$, fill in the extra rows and columns with zeros.
 
 We have found that ARI scores tend to be better if we start with ProNE than if we start from a cold start.
@@ -124,7 +124,7 @@ We have found that ARI scores tend to be better if we start with ProNE than if w
 <h3>New Cold Start</h3>
 
 The code supports an option for a new cold start, which uses a simple heuristic to improve the chances
-that vertices near one another in G will receive the same label.  Start by setting all the values in Y to -1 (unassigned).
+that vertices near one another in $G$ will receive the same label.  Start by setting all the values in $Y$ to -1 (unassigned).
 Then iterate over the edges, assigning both vertices in the edge to the same (random) label (when possible).  That is, if they are both unassigned, then
 assign them to the same random value between $0$ and $K-1$.  If one is assigned and the other is not, then fill in the missing value
 with the non-miasing value.  At the end of the iteration, all the values in Y should be assigned to a value between $0$ and $K-1$.
@@ -147,6 +147,12 @@ Thus, we have three methods for initializing $Y_0$ and $Z_0$:
 
 Empirically, we obtain the best ARI scores (after the final iteration), if we start with ProNE.  The new cold start is better than the original cold start,
 but not as good as ProNE, even if we computed ProNE from a smaller graph, and use fewer hidden dimensions.
+
+The plot below shows that initialization matters in a citation prediction task.  We selected a set of pairs of papers that are separated by 1-4 hops in the citation graph ($dist$).
+Baseline uses ProNE with with K=280 hidden dimensions.  The other plots show cosines based on GEE with K=32, initialized from with cold start, new cold start and ProNE (with K=32 hidden dimensions).
+Note that there are larger differences by $dist$ when GEE starts with better intializations.
+
+<img src="ColdStart.jpg">
 
 <h2>Incremental Upates</h2>
 
