@@ -17,6 +17,12 @@ and fewer columns.
 * fewer rows: start with ProNE based on a subgraph of $G$
 * fewer columns: start with ProNE with fewer hidden dimensions
 
+In addition to speed, GEE offers a number of other advantages.  In
+particular, for academic search, we need a method to update embeddings
+to keep up with the literature which is publishing new papers all the
+time, and growing quickly (<a href="https://blogs.nature.com/news/2014/05/global-scientific-output-doubles-every-nine-years.html">doubling every 9 years</a>).
+Incremental updates are discussed <a href="#incremental_updates">below</a>.
+
 <h2>Notation</h2>
 
 Let $G=(V,E)$ be a graph
@@ -154,7 +160,7 @@ Note that there are larger differences by $dist$ when GEE starts with better int
 
 <img src="ColdStart.jpg">
 
-<h2>Incremental Upates</h2>
+<h2 id="incremental_updates">Incremental Upates</h2>
 
 Suppose we have computed $Z_{G_i}$ from a previous graph $G_i$.  Since then, we have a new graph, $G_{i+1}$, that is similar to $G_i$, though
 there may be a few additional edges, and a few edges may have changed.  To obtain a quick-and-dirty estimate of $Z_{G_{i+1}}$, we recommend running GEE on $G_{i+1}$, starting by initializing $Z_0$ to $Z_{G_i}$.
