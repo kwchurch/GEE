@@ -55,14 +55,14 @@ After initialization,
 * we estimate the next $Y_i$ from the prevous $Z_{i-1}$ (algorithm 2 in <a href="https://arxiv.org/pdf/2109.13098">paper</a>)
 * and then we use that $Y_i$ to estimate the next $Z_i$ (algorithm 1 in <a href="https://arxiv.org/pdf/2109.13098">paper</a>)
 
-The iterations continue for a fixed number of iterations (a hyperparameter), or when Y doesn't change (much) from one iteration to the next.
+The iterations continue for a fixed number of iterations (a hyperparameter), or when $Y$ doesn't change (much) from one iteration to the next.
 
 <h3>Algorithm 1: Update $Z_i$ from $Y_i$ and $Z_{i-1}$</h3>
 
 * Input: $G$, $Y_{i-1}$ and $Z_{i-1}$
 * Output: $Z_i$
 
-The simplest case iterates over edges in G with:
+The simplest case iterates over edges in $G$ with:
 
 <pre>
 for u,v in zip(X0,X1):
@@ -70,7 +70,7 @@ for u,v in zip(X0,X1):
     Z[v,Y[u]] += 1/freq(Y[u])
 </pre>
 
-freq(lab) is the number of times lab appears in Y.
+$freq(lab)$ is the number of times $lab$ appears in $Y$.
 
 <p>
 The code is slightly more complicated for graphs with weighted edges:
