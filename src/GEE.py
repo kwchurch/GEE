@@ -68,6 +68,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--cold_start", help="start with random classes for Y and zeros for Z", action='store_true')
 parser.add_argument("--new_cold_start", help="like cold_start but try to assign vertices near one another the same label in Y", action='store_true')
 parser.add_argument("--save_prefix", help="output file", default=None)
+parser.add_argument("--do_not_map_input_graph_to_new_edges", help="by default, use map in input directory to map corpus ids to new ids; this flag prevents that", action='store_true')
 parser.add_argument("-G", "--input_graph", help="input graph (pathname minus .X.i or sparse graph in file ending with .npz)", required=True)
 parser.add_argument("-d", "--input_directory", help="input directory with embedding", default=None)
 parser.add_argument("-K", "--hidden_dimensions", type=int, help="defaults to embedding shape[1] if not specified, but can be overridden (for upsampling); must be specified if --input directory is not specified", default=None)
@@ -164,10 +165,14 @@ def read_graph(fn, old_to_new):
         X0,X1 = M.nonzero()
         G = { 'X0': X0, 'X1' : X1 }
 
-    elif old_to_new is None:
+    elif args.do_not_map_input_graph_to_new_edges or old_to_new is None:
+        print('%0.3f sec: **not** mapping input_graph to new edges' % (time.time() - t0), file=sys.stderr)
+        sys.stderr.flush()
+
         G =  { 'X0' : map_int32(fn + '.X.i'),
                'X1' : map_int32(fn + '.Y.i')}
     else:
+        print('%0.3f sec: mapping input_graph to new edges' % (time.time() - t0), file=sys.stderr)
         G =  { 'X0' : old_to_new[map_int32(fn + '.X.i')],
                'X1' : old_to_new[map_int32(fn + '.Y.i')]}
 
@@ -186,7 +191,7 @@ def read_graph(fn, old_to_new):
 
 save_offset=args.iteration_start
 
-def save_X(G):
+def save_X(G, iteration0):
   global save_offset
   assert not args.save_prefix is None, '--save_prefix must be specified'
   
@@ -194,7 +199,7 @@ def save_X(G):
   X1path = args.save_prefix + '.X1.i'
   X2path = args.save_prefix + '.X2.f'
 
-  if args.iteration_start == 0:
+  if iteration0:
       print('%0.3f sec: save_X, saving graph' % (time.time() - t0), file=sys.stderr)
       X0 = G['X0'].astype(np.int32)
       X1 = G['X1'].astype(np.int32)
@@ -206,16 +211,19 @@ def save_X(G):
 
   return X0path,X1path,X2path
 
-def create_Z(G, Y, Zprev_path, norm):
+def create_Z(G, Y, Zprev_path, iteration0):
   n = len(Y)
   global save_offset
 
   gee_t0 = time.time()
   
-  X0path,X1path,X2path = save_X(G)
+  X0path,X1path,X2path = save_X(G, iteration0)
 
   # to simplify things, lets avoid more complicated cases
   # if Y.shape[1] != 1: return None
+
+  print('%0.3f sec: create_Z, about to save Y' % (time.time() - t0), file=sys.stderr)
+  sys.stderr.flush()
 
   YY = Y.reshape(-1).astype(np.int32)
   Ypath = args.save_prefix + '.Y.%d.i' % save_offset
@@ -233,7 +241,7 @@ def create_Z(G, Y, Zprev_path, norm):
 
   if not Zprev_path is None:
       cmd += ' --Zprev ' + Zprev_path
-  if norm: cmd += ' --normalize'
+  if iteration0: cmd += ' --normalize'
 
   print('cmd: ' + cmd, file=sys.stderr)
   sys.stderr.flush()
@@ -291,10 +299,17 @@ def create_Y(Z):
     return labels
  
 config = directory_to_config(args.input_directory)
+
+print('%0.3f sec: about to call read_graph' % (time.time() - t0), file=sys.stderr)
+sys.stderr.flush()
+
 if config is None:
     G = read_graph(args.input_graph, None)
 else:
     G = read_graph(args.input_graph, config['map32'])
+
+print('%0.3f sec: finished read_graph' % (time.time() - t0), file=sys.stderr)
+sys.stderr.flush()
 
 if args.iteration_start > 0:
     Zpath = args.save_prefix + '.Z.%d.f' % (save_offset-1)
@@ -307,12 +322,18 @@ elif args.iteration_start == 0:
     Zpath = args.input_directory + '/embedding.f'
 else: assert False, 'there are no other cases'
 
+print('%0.3f sec: loaded Z with shape %s' % (time.time() - t0, str(Z1.shape)), file=sys.stderr)
+sys.stderr.flush()
+
+
 Yprev = None
 
 # Create extra col with zeros
 # for upsampling
 if not Z1 is None and args.iteration_start == 0 and not args.hidden_dimensions is None:
-    if args.hidden_dimensions <= Z1.shape[1]:
+    if args.hidden_dimensions == Z1.shape[1]:
+        newZ1 = Z1
+    elif args.hidden_dimensions <= Z1.shape[1]:
         newZ1 = np.copy(Z1[:,0:args.hidden_dimensions])
     else:
         newZ1 = np.zeros((Z1.shape[0], args.hidden_dimensions), dtype=np.float32)
@@ -322,6 +343,9 @@ if not Z1 is None and args.iteration_start == 0 and not args.hidden_dimensions i
     Zpath = args.save_prefix + '.Z.init.f'
     Z1.tofile(Zpath)
 
+print('%0.3f sec: addressed hidden_dimensions' % (time.time() - t0), file=sys.stderr)
+sys.stderr.flush()
+
 # Replace rows with zeros
 if Z1 is None and args.iteration_start == 0 and not args.brain_damage is None:
     newZ1 = np.copy(Z1[:,0:args.hidden_dimensions])
@@ -330,6 +354,9 @@ if Z1 is None and args.iteration_start == 0 and not args.brain_damage is None:
     Zpath = args.save_prefix + '.Z.init.f'
     Z1.tofile(Zpath)
     
+print('%0.3f sec: addressed brain damage' % (time.time() - t0), file=sys.stderr)
+sys.stderr.flush()
+
 for iteration in range(args.iteration_start, args.iteration_end):
 
   print('%0.3f sec: working on iteration: %d' % (time.time() - t0, iteration), file=sys.stderr)
@@ -346,6 +373,8 @@ for iteration in range(args.iteration_start, args.iteration_end):
 
   print(psutil.virtual_memory(), file=sys.stderr)
   sys.stderr.flush()
+
+  print('%0.3f sec: about to compute Z2, iteration: %d' % (time.time() - t0, iteration), file=sys.stderr)
 
   Z2,newZpath = create_Z(G, Y1, Zpath, iteration==0)
 
