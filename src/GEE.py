@@ -24,7 +24,7 @@ t0 = time.time()
 # Y is a sequence of |V| class labels, where 0 <= Y[i] < K
 
 # G will be represented with X0, X1, X2.  All three vectors have length of |E|.
-# Edges go from x0 in X0 to x1 in X2 with weights x3 in X3.
+# Edges go from x0 in X0 to x1 in X1 with weights x2 in X2.
 # X0 and X1 are stored with dtype of np.int32, and X2 is stored with dtype of np.float32
 # X2 is optional, and defaults to a vector of ones (if not specified).
 
@@ -313,6 +313,8 @@ sys.stderr.flush()
 
 if args.iteration_start > 0:
     Zpath = args.save_prefix + '.Z.%d.f' % (save_offset-1)
+    if not args.hidden_dimensions is None:
+        config['record_size'] = args.hidden_dimensions
     Z1 =  map_float32(Zpath).reshape(-1, config['record_size'])
 elif args.cold_start or args.new_cold_start:
     Z1 = None
@@ -369,7 +371,7 @@ for iteration in range(args.iteration_start, args.iteration_end):
   if not Yprev is None:
       score = adjusted_rand_score(Y1, Yprev)
       print('%0.3f sec: iteration %d, ARI score %f' % (time.time() - t0, iteration, score), file=sys.stderr)
-      if score > 0.999: break
+      # if score > 0.999: break
 
   print(psutil.virtual_memory(), file=sys.stderr)
   sys.stderr.flush()
