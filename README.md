@@ -34,10 +34,10 @@ Cosines of rows of $Z$ can be interpreted in terms of random walks on $G$.
 $Y$ is a sequence of $|V|$ class labels, where $0 \le Y[i] < K$.  
 
 **Note**: $K$ is both the number
-of hidden dimensions in $Z$ as well as the number of class lables in $Y$.
+of hidden dimensions in $Z$ as well as the number of classes in $Y$.
 
 $G$ will be represented with three vectors: $X0, X1, X2$.  All three vectors have length of $|E|$.
-Edges go from $x0$ in $X0$ to $x1$ in $X2$ with weights $x3$ in $X3$.
+Edges go from $x0$ in $X0$ to $x1$ in $X1$ with weights $x2$ in $X2$.
 $X0$ and $X1$ are stored with dtype of np.int32, and $X2$ is stored with dtype of np.float32
 $X2$ is optional, and defaults to a vector of ones (if not specified).
 
@@ -47,6 +47,7 @@ computed on the previous iteration.
 
 Inputs to GEE:
 * $G$ (required)
+* $K$ (required, unless it can be inferred from other arguments)
 * options for initializing $Y_0$ and $Z_0$ (either from cold start or from something better)
 * options for restarting iterations
 * optional hyperparameters
@@ -58,7 +59,7 @@ Outputs:
 <h2>Iterations</h2>
 
 After initialization, 
-* we estimate the next $Y_i$ from the prevous $Z_{i-1}$ (algorithm 2 in <a href="https://arxiv.org/pdf/2109.13098">paper</a>)
+* we estimate the next $Y_i$ from the previous $Z_{i-1}$ (algorithm 2 in <a href="https://arxiv.org/pdf/2109.13098">paper</a>)
 * and then we use that $Y_i$ to estimate the next $Z_i$ (algorithm 1 in <a href="https://arxiv.org/pdf/2109.13098">paper</a>)
 
 The iterations continue for a fixed number of iterations (a hyperparameter), or when $Y$ doesn't change (much) from one iteration to the next.
@@ -133,7 +134,7 @@ The code supports an option for a new cold start, which uses a simple heuristic 
 that vertices near one another in $G$ will receive the same label.  Start by setting all the values in $Y$ to -1 (unassigned).
 Then iterate over the edges, assigning both vertices in the edge to the same (random) label (when possible).  That is, if they are both unassigned, then
 assign them to the same random value between $0$ and $K-1$.  If one is assigned and the other is not, then fill in the missing value
-with the non-miasing value.  At the end of the iteration, all the values in Y should be assigned to a value between $0$ and $K-1$.
+with the non-missing value.  At the end of the iteration, all the values in Y should be assigned to a value between $0$ and $K-1$.
 
 <pre>
 Y = -np.ones(|V|)	# initialize Y to -1 (unassigned)
